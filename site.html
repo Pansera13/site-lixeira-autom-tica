@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lixeira Inteligente — Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #3a3a3a;
+      color: #1a1a18;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #888780; margin-bottom: 1.5rem; }
+
+    .grid4 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .metric {
+      background: #8b8b8b;
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: #888780;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .metric-value { font-size: 22px; font-weight: 500; }
+    .metric-unit { font-size: 13px; font-weight: 400; color: #888780; }
+
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 600px) { .panels { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #888780;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .slider-row label { font-size: 13px; color: #888780; min-width: 130px; }
+    .slider-row span { font-size: 13px; font-weight: 500; min-width: 40px; text-align: right; }
+
+    input[type=range] {
+      flex: 1;
+      accent-color: #1D9E75;
+      cursor: pointer;
+    }
+
+    .sep { border: none; border-top: 0.5px solid rgba(0,0,0,0.1); margin: 1rem 0; }
+
+    .led { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .led-on-green { background: #639922; box-shadow: 0 0 6px #639922; }
+    .led-on-red   { background: #E24B4A; box-shadow: 0 0 6px #E24B4A; }
+    .led-off      { background: #ccc; }
+    .led-row {
+      display: flex; align-items: center;
+      gap: 8px; font-size: 13px; color: #888780; margin-bottom: 8px;
+    }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 8px;
+      font-size: 12px; font-weight: 500;
+    }
+    .badge-ok     { background: #EAF3DE; color: #3B6D11; }
+    .badge-warn   { background: #FCEBEB; color: #A32D2D; }
+    .badge-open   { background: #E1F5EE; color: #0F6E56; }
+    .badge-closed { background: #F1EFE8; color: #5F5E5A; }
+
+    .lixeira-wrap {
+      display: flex; justify-content: center;
+      align-items: center; padding: 0.5rem 0;
+    }
+
+    #tampa-g {
+      transform-origin: 16px 55px;
+      transform: rotate(0deg);
+      transition: transform 0.5s ease;
+    }
+
+    .log-area {
+      background: #f5f5f3;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #888780;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .log-line  { margin: 0 0 3px; }
+    .log-ok    { color: #3B6D11; }
+    .log-warn  { color: #A32D2D; }
+    .log-info  { color: #185FA5; }
+
+    .history-bar {
+      display: flex; gap: 3px;
+      align-items: flex-end; height: 60px; margin-top: 4px;
+    }
+    .h-bar {
+      flex: 1; border-radius: 2px 2px 0 0;
+      min-height: 4px; transition: height 0.3s;
+    }
+  </style>
+</head>
+<body>
+
+  <h1><i class="ti ti-recycle"></i> Lixeira inteligente — dashboard</h1>
+  <p class="subtitle">Simulação em tempo real · Arduino Uno + HC-SR04 + Servo MG90S</p>
+
+  <!-- métricas -->
+  <div class="grid4">
+    <div class="metric">
+      <p class="metric-label"><i class="ti ti-hand-stop"></i> Dist. frente</p>
+      <p class="metric-value" id="val-frente">—<span class="metric-unit"> cm</span></p>
+    </div>
+    <div class="metric">
+      <p class="metric-label"><i class="ti ti-package"></i> Dist. tampa</p>
+      <p class="metric-value" id="val-tampa">—<span class="metric-unit"> cm</span></p>
+    </div>
+    <div class="metric">
+      <p class="metric-label"><i class="ti ti-settings"></i> Servo</p>
+      <p class="metric-value" id="val-servo">0<span class="metric-unit">°</span></p>
+    </div>
+    <div class="metric">
+      <p class="metric-label"><i class="ti ti-clock"></i> Ciclos</p>
+      <p class="metric-value" id="val-ciclos">0</p>
+    </div>
+  </div>
+
+  <!-- painéis principais -->
+  <div class="panels">
+
+    <!-- controles -->
+    <div class="card">
+      <p class="card-title"><i class="ti ti-adjustments"></i> Simular sensores</p>
+      <div class="slider-row">
+        <label>Distância frente</label>
+        <input type="range" min="1" max="40" value="25" id="sl-frente" step="1">
+        <span id="lbl-frente">25 cm</span>
+      </div>
+      <div class="slider-row">
+        <label>Distância tampa</label>
+        <input type="range" min="1" max="20" value="12" id="sl-tampa" step="1">
+        <span id="lbl-tampa">12 cm</span>
+      </div>
+      <hr class="sep">
+      <div class="led-row"><span class="led" id="led-verde"></span> LED verde (tampa aberta)</div>
+      <div class="led-row"><span class="led" id="led-vermelho"></span> LED vermelho (lixeira cheia)</div>
+      <hr class="sep">
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <span id="badge-estado" class="status-badge badge-closed">Tampa fechada</span>
+        <span id="badge-cheia"  class="status-badge badge-ok">Capacidade ok</span>
+      </div>
+    </div>
+
+    <!-- visualização 3D simples -->
+    <div class="card">
+      <p class="card-title"><i class="ti ti-trash"></i> Visualização</p>
+      <div class="lixeira-wrap">
+        <svg id="lixeira-svg" viewBox="0 0 120 160" width="120" height="160" xmlns="http://www.w3.org/2000/svg">
+          <!-- tampa animada -->
+          <g id="tampa-g">
+            <rect x="10" y="48" width="100" height="12" rx="4" fill="#888780"/>
+            <rect x="42" y="38" width="36"  height="12" rx="3" fill="#B4B2A9"/>
+          </g>
+          <!-- corpo -->
+          <rect x="10" y="60" width="100" height="90" rx="6" fill="#D3D1C7"/>
+          <rect x="18" y="68" width="84"  height="74" rx="4" fill="#F1EFE8"/>
+          <!-- nível de lixo -->
+          <rect id="nivel-lixo" x="18" y="130" width="84" height="12" rx="2" fill="#9FE1CB"/>
+          <!-- pontos dos sensores -->
+          <circle id="sensor-frente-dot" cx="60" cy="155" r="5" fill="#378ADD" opacity="0.7"/>
+          <circle id="sensor-tampa-dot"  cx="60" cy="65"  r="4" fill="#D85A30" opacity="0.7"/>
+        </svg>
+      </div>
+      <div style="text-align:center; font-size:12px; color:#888780;">
+        <span style="margin-right:8px;">
+          <svg width="10" height="10" style="vertical-align:-1px"><circle cx="5" cy="5" r="5" fill="#378ADD"/></svg>
+          sensor frente
+        </span>
+        <span>
+          <svg width="10" height="10" style="vertical-align:-1px"><circle cx="5" cy="5" r="5" fill="#D85A30"/></svg>
+          sensor tampa
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- histograma -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <p class="card-title"><i class="ti ti-chart-bar"></i> Histórico de distância — frente (últimas 20 leituras)</p>
+    <div class="history-bar" id="hist-bars"></div>
+  </div>
+
+  <!-- monitor serial -->
+  <div class="card">
+    <p class="card-title"><i class="ti ti-terminal"></i> Monitor serial</p>
+    <div class="log-area" id="log-area"></div>
+  </div>
+
+  <script>
+    const slFrente    = document.getElementById('sl-frente');
+    const slTampa     = document.getElementById('sl-tampa');
+    const lblFrente   = document.getElementById('lbl-frente');
+    const lblTampa    = document.getElementById('lbl-tampa');
+    const valFrente   = document.getElementById('val-frente');
+    const valTampa    = document.getElementById('val-tampa');
+    const valServo    = document.getElementById('val-servo');
+    const valCiclos   = document.getElementById('val-ciclos');
+    const ledVerde    = document.getElementById('led-verde');
+    const ledVermelho = document.getElementById('led-vermelho');
+    const badgeEstado = document.getElementById('badge-estado');
+    const badgeCheia  = document.getElementById('badge-cheia');
+    const logArea     = document.getElementById('log-area');
+    const tampaG      = document.getElementById('tampa-g');
+    const nivelLixo   = document.getElementById('nivel-lixo');
+    const histBars    = document.getElementById('hist-bars');
+
+    let ciclos     = 0;
+    let historico  = Array(20).fill(25);
+    let tampaAberta = false;
+    let tampaTimer  = null;
+
+    function log(msg, tipo) {
+      const d  = document.createElement('p');
+      d.className = 'log-line' + (tipo ? ' log-' + tipo : '');
+      const now = new Date();
+      const ts  = [now.getHours(), now.getMinutes(), now.getSeconds()]
+                    .map(n => String(n).padStart(2,'0')).join(':');
+      d.textContent = '[' + ts + '] ' + msg;
+      logArea.appendChild(d);
+      if (logArea.children.length > 80) logArea.removeChild(logArea.firstChild);
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    function atualizarHistograma() {
+      histBars.innerHTML = '';
+      const max = Math.max(...historico, 1);
+      historico.forEach((v, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'h-bar';
+        bar.style.height   = Math.max(4, Math.round((v / max) * 56)) + 'px';
+        bar.style.background = v < 10 ? '#E24B4A' : '#1D9E75';
+        bar.style.opacity  = (0.4 + 0.6 * (i / historico.length)).toFixed(2);
+        histBars.appendChild(bar);
+      });
+    }
+
+    function atualizarNivel(distTampa) {
+      const pct  = Math.min(1, Math.max(0, (20 - distTampa) / 20));
+      const h    = Math.round(pct * 62);
+      const y    = 68 + (62 - h);
+      nivelLixo.setAttribute('y', y);
+      nivelLixo.setAttribute('height', h);
+      nivelLixo.setAttribute('fill', pct > 0.85 ? '#E24B4A' : pct > 0.6 ? '#EF9F27' : '#5DCAA5');
+    }
+
+    function update() {
+      const df = parseInt(slFrente.value);
+      const dt = parseInt(slTampa.value);
+      lblFrente.textContent = df + ' cm';
+      lblTampa.textContent  = dt + ' cm';
+      valFrente.innerHTML   = df + '<span class="metric-unit"> cm</span>';
+      valTampa.innerHTML    = dt + '<span class="metric-unit"> cm</span>';
+
+      historico.push(df);
+      if (historico.length > 20) historico.shift();
+      atualizarHistograma();
+      atualizarNivel(dt);
+
+      log('[TAMPA] Distância: ' + dt + ' cm');
+
+      const cheia = dt > 0 && dt < 5;
+      const mao   = df > 0 && df < 10;
+
+      if (cheia) {
+        ledVermelho.className = 'led led-on-red';
+        ledVerde.className    = 'led led-off';
+        badgeCheia.textContent  = 'Lixeira cheia!';
+        badgeCheia.className    = 'status-badge badge-warn';
+        badgeEstado.textContent = 'Tampa bloqueada';
+        badgeEstado.className   = 'status-badge badge-closed';
+        tampaG.style.transform  = 'rotate(0deg)';
+        valServo.innerHTML = '0<span class="metric-unit">°</span>';
+        tampaAberta = false;
+        log('[AVISO] Lixeira CHEIA - tampa bloqueada!', 'warn');
+      } else {
+        badgeCheia.textContent = 'Capacidade ok';
+        badgeCheia.className   = 'status-badge badge-ok';
+        ledVermelho.className  = 'led led-off';
+        log('[FRENTE] Distância: ' + df + ' cm');
+
+        if (mao) {
+          if (!tampaAberta) {
+            log('[AÇÃO] Mão detectada - abrindo tampa!', 'info');
+            ciclos++;
+            valCiclos.textContent = ciclos;
+          }
+          tampaAberta = true;
+          tampaG.style.transform  = 'rotate(-90deg)';
+          valServo.innerHTML      = '90<span class="metric-unit">°</span>';
+          ledVerde.className      = 'led led-on-green';
+          badgeEstado.textContent = 'Tampa aberta';
+          badgeEstado.className   = 'status-badge badge-open';
+          if (tampaTimer) clearTimeout(tampaTimer);
+          tampaTimer = setTimeout(() => {
+            tampaAberta = false;
+            tampaG.style.transform  = 'rotate(0deg)';
+            valServo.innerHTML      = '0<span class="metric-unit">°</span>';
+            ledVerde.className      = 'led led-off';
+            badgeEstado.textContent = 'Tampa fechada';
+            badgeEstado.className   = 'status-badge badge-closed';
+            log('[INFO] Tampa fechada automaticamente após 3s');
+          }, 3000);
+        } else if (!tampaAberta) {
+          tampaG.style.transform  = 'rotate(0deg)';
+          valServo.innerHTML      = '0<span class="metric-unit">°</span>';
+          ledVerde.className      = 'led led-off';
+          badgeEstado.textContent = 'Tampa fechada';
+          badgeEstado.className   = 'status-badge badge-closed';
+        }
+      }
+      log('--------------------');
+    }
+
+    slFrente.addEventListener('input', update);
+    slTampa.addEventListener('input', update);
+
+    log('=== Lixeira inteligente iniciada ===', 'info');
+    update();
+  </script>
+
+  <!-- BOTÃO MODO ESCURO -->
+<button id="theme-toggle">
+  <i class="ti ti-moon"></i>
+</button>
+
+<style>
+
+#theme-toggle{
+  position:fixed;
+  top:20px;
+  right:20px;
+  width:50px;
+  height:50px;
+  border:none;
+  border-radius:12px;
+  background:#00b36b;
+  color:white;
+  font-size:20px;
+  cursor:pointer;
+  z-index:9999;
+  transition:0.3s;
+}
+
+#theme-toggle:hover{
+  transform:scale(1.05);
+}
+
+/* MODO ESCURO */
+
+body.dark{
+  background:#121212 !important;
+  color:#f5f5f5 !important;
+}
+
+body.dark .card,
+body.dark .metric{
+  background:#1e1e1e !important;
+  border-color:#2c2c2c !important;
+  color:#ffffff !important;
+}
+
+body.dark .subtitle,
+body.dark .metric-label,
+body.dark .card-title,
+body.dark .slider-row label,
+body.dark .led-row,
+body.dark .metric-unit{
+  color:#a1a1aa !important;
+}
+
+body.dark .log-area{
+  background:#101010 !important;
+  border:1px solid #2c2c2c !important;
+  color:#d4d4d4 !important;
+}
+
+body.dark .badge-ok{
+  background:#163524 !important;
+  color:#7dffb1 !important;
+}
+
+body.dark .badge-warn{
+  background:#3a1d1d !important;
+  color:#ff8f8f !important;
+}
+
+body.dark .badge-open{
+  background:#12392f !important;
+  color:#72ffd1 !important;
+}
+
+body.dark .badge-closed{
+  background:#2a2a2a !important;
+  color:#d4d4d4 !important;
+}
+
+</style>
+
+<script>
+
+const themeToggle = document.getElementById("theme-toggle");
+
+themeToggle.addEventListener("click", () => {
+
+  document.body.classList.toggle("dark");
+
+  if(document.body.classList.contains("dark")){
+    themeToggle.innerHTML = '<i class="ti ti-sun"></i>';
+  }else{
+    themeToggle.innerHTML = '<i class="ti ti-moon"></i>';
+  }
+
+});
+
+</script>
+</body>
+</html>
