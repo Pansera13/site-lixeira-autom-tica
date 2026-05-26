@@ -1,0 +1,1 @@
+# site-lixeira-autom-tica
