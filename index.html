@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa Lixeira Inteligente</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#f5f5f3; --bg2:#ffffff; --bg3:#e8e8e4;
+  --text:#1a1a18; --muted:#5F5E5A; --hint:#888780;
+  --border:rgba(0,0,0,0.13); --border2:rgba(0,0,0,0.22);
+  --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+  --green-bg:#EAF3DE; --green-txt:#3B6D11;
+  --red-bg:#FCEBEB;   --red-txt:#A32D2D;
+  --blue-bg:#E6F1FB;  --blue-txt:#185FA5; --blue-bd:#85B7EB;
+  --radius:8px; --radius-lg:12px;
+  --mono:'Courier New', monospace;
+}
+[data-theme="dark"] {
+  --bg:#0f0f0d; --bg2:#222220; --bg3:#181815;
+  --text:#e8e6df; --muted:#888780; --hint:#5F5E5A;
+  --border:rgba(255,255,255,0.09); --border2:rgba(255,255,255,0.18);
+  --green-bg:#1a3d25; --green-txt:#4ade80;
+  --red-bg:#3d1a1a;   --red-txt:#f87171;
+  --blue-bg:#0c2d4a;  --blue-txt:#60a5fa; --blue-bd:#185FA5;
+}
+body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1.25rem; transition: background .3s, color .3s; }
+
+.topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.page-title { font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px; }
+.theme-btn { display:flex; align-items:center; gap:6px; padding:5px 13px; border-radius:99px; border:none; background:var(--text); color:var(--bg); font-size:12px; cursor:pointer; transition:opacity .2s; }
+.theme-btn:hover { opacity:.8; }
+
+.layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:680px){ .layout { grid-template-columns:1fr; } }
+
+.floor-plan { position:relative; width:100%; aspect-ratio:4/3; background:var(--bg3); border-radius:var(--radius-lg); border:1px solid var(--border2); overflow:hidden; }
+.room { position:absolute; border:0.5px solid var(--border); background:var(--bg2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; border-radius:2px; cursor:pointer; transition:background .2s, border-color .2s; user-select:none; }
+.room:hover { background:var(--bg3); }
+.room.active { border:1.5px solid var(--blue-bd); background:var(--blue-bg); }
+.room.full { border-color:var(--red); background:var(--red-bg); animation:fl 1.2s infinite; }
+.room.full.active { border:1.5px solid var(--red); }
+@keyframes fl { 0%,100%{background:var(--red-bg)} 50%{background:var(--bg2)} }
+.room-name { font-size:10px; font-weight:500; color:var(--muted); text-align:center; pointer-events:none; }
+.room.active .room-name { color:var(--blue-txt); }
+.room.full   .room-name { color:var(--red-txt); }
+.room-ico { font-size:16px; color:var(--muted); pointer-events:none; }
+.hint { font-size:11px; color:var(--hint); margin:6px 0 0; display:flex; align-items:center; gap:4px; }
+.wall-h { position:absolute; height:1.5px; background:var(--border2); }
+.wall-v { position:absolute; width:1.5px;  background:var(--border2); }
+
+.right-col { display:flex; flex-direction:column; gap:10px; }
+
+.panel { background:var(--bg2); border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:.9rem 1.1rem; flex:1; }
+.panel-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--hint); font-size:13px; height:100%; min-height:120px; }
+.panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.85rem; }
+.panel-title { font-size:14px; font-weight:500; display:flex; align-items:center; gap:7px; }
+.close-btn { background:none; border:0.5px solid var(--border2); border-radius:var(--radius); padding:2px 8px; cursor:pointer; color:var(--muted); font-size:11px; display:flex; align-items:center; gap:3px; }
+.close-btn:hover { background:var(--bg3); }
+.metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:.85rem; }
+.met { background:var(--bg3); border-radius:var(--radius); padding:.6rem .8rem; }
+.met-label { font-size:10px; color:var(--muted); margin-bottom:3px; }
+.met-val { font-size:18px; font-weight:500; }
+.met-unit { font-size:11px; font-weight:400; color:var(--muted); }
+.cap-bar { width:100%; height:7px; background:var(--bg3); border-radius:99px; overflow:hidden; margin-bottom:3px; }
+.cap-fill { height:100%; border-radius:99px; transition:width .5s, background .4s; }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.info-row { display:flex; align-items:center; justify-content:space-between; padding:5px 0; border-bottom:0.5px solid var(--border); font-size:12px; }
+.info-row:last-child { border-bottom:none; }
+.info-lbl { color:var(--muted); display:flex; align-items:center; gap:5px; }
+.info-val { font-weight:500; }
+.chip { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:var(--radius); font-size:11px; }
+.chip-ok   { background:var(--green-bg); color:var(--green-txt); }
+.chip-warn { background:var(--red-bg);   color:var(--red-txt); }
+.chip-muted{ background:var(--bg3);      color:var(--muted); }
+.open-btn { width:100%; padding:.55rem; border-radius:var(--radius); border:0.5px solid var(--green-txt); background:var(--green-bg); color:var(--green-txt); font-size:12px; font-weight:500; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; transition:opacity .2s; margin-top:10px; }
+.open-btn:hover:not(:disabled){ opacity:.8; }
+.open-btn:disabled { opacity:.35; cursor:not-allowed; }
+.led-row { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); margin-bottom:5px; }
+.led { width:8px; height:8px; border-radius:50%; background:var(--border2); }
+.led-g { background:var(--green); }
+.led-r { background:var(--red); }
+.room.empty { background:var(--bg3); border-style:dashed; cursor:default; opacity:.55; }
+.room.empty:hover { background:var(--bg3); }
+.room.empty .room-name { font-style:italic; }
+
+.serial-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:.9rem 1.1rem; }
+.serial-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.6rem; }
+.serial-title { font-size:12px; font-weight:500; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.serial-clear { background:none; border:0.5px solid var(--border2); border-radius:var(--radius); padding:2px 8px; cursor:pointer; color:var(--muted); font-size:11px; }
+.serial-clear:hover { background:var(--bg3); }
+.serial-log { background:var(--bg); border-radius:var(--radius); padding:8px 10px; font-family:var(--mono); font-size:11px; color:var(--muted); height:130px; overflow-y:auto; }
+.serial-log p { margin:0 0 2px; line-height:1.5; }
+.log-ok    { color:var(--green-txt); }
+.log-warn  { color:var(--red-txt); }
+.log-info  { color:var(--blue-txt); }
+.log-amber { color:#854F0B; }
+[data-theme="dark"] .log-amber { color:var(--amber); }
+.serial-input-row { display:flex; gap:6px; margin-top:8px; }
+.serial-input { flex:1; background:var(--bg3); border:0.5px solid var(--border2); border-radius:var(--radius); padding:5px 10px; font-family:var(--mono); font-size:12px; color:var(--text); outline:none; }
+.serial-input:focus { border-color:var(--blue-bd); }
+.serial-send { padding:5px 12px; border-radius:var(--radius); border:0.5px solid var(--border2); background:var(--bg3); color:var(--text); font-size:12px; cursor:pointer; }
+.serial-send:hover { background:var(--blue-bg); border-color:var(--blue-bd); color:var(--blue-txt); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="page-title"><i class="ti ti-trash" aria-hidden="true"></i> Lixeira inteligente</span>
+  <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
+    <i class="ti ti-moon" id="theme-ico" aria-hidden="true"></i>
+    <span id="theme-lbl">modo escuro</span>
+  </button>
+</div>
+
+<div class="layout">
+
+  <div>
+    <div class="floor-plan" id="plan">
+      <div class="wall-h" style="top:0;left:0;right:0"></div>
+      <div class="wall-h" style="bottom:0;left:0;right:0"></div>
+      <div class="wall-v" style="left:0;top:0;bottom:0"></div>
+      <div class="wall-v" style="right:0;top:0;bottom:0"></div>
+    </div>
+    <p class="hint"><i class="ti ti-hand-click" aria-hidden="true"></i> clique num cômodo para ver detalhes</p>
+  </div>
+
+  <div class="right-col">
+    <div class="panel" id="panel">
+      <div class="panel-empty" id="panel-empty">
+        <i class="ti ti-map-pin" style="font-size:28px" aria-hidden="true"></i>
+        <span>selecione um cômodo</span>
+      </div>
+    </div>
+
+    <div class="serial-card">
+      <div class="serial-header">
+        <span class="serial-title"><i class="ti ti-terminal" aria-hidden="true"></i> monitor serial</span>
+        <button class="serial-clear" onclick="clearLog()">limpar</button>
+      </div>
+      <div class="serial-log" id="serial-log"></div>
+      <div class="serial-input-row">
+        <input class="serial-input" id="serial-input" type="text" placeholder="enviar comando ao ESP..." onkeydown="if(event.key==='Enter')sendCmd()">
+        <button class="serial-send" onclick="sendCmd()"><i class="ti ti-send" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ESP = '192.168.1.100'; // <<< IP do seu ESP8266
+
+const ROOMS = [
+  {id:'cozinha',  name:'Cozinha',   icon:'ti-chef-hat', x:'0%',  y:'0%',  w:'42%', h:'48%'},
+  {id:'sala',     name:'Sala',      icon:'ti-sofa',     x:'46%', y:'0%',  w:'54%', h:'48%'},
+  {id:'quarto1',  name:'Quarto 1',  icon:'ti-bed',      x:'0%',  y:'52%', w:'32%', h:'48%', empty:true},
+  {id:'banheiro', name:'Banheiro',  icon:'ti-bath',     x:'36%', y:'52%', w:'24%', h:'48%'},
+  {id:'quarto2',  name:'Quarto 2',  icon:'ti-bed',      x:'64%', y:'52%', w:'36%', h:'48%'},
+];
+
+const state = {};
+ROOMS.forEach(r => {
+  if (r.empty) return;
+  state[r.id] = { open:false, timer:null, servo:0, ultimaAbertura:null,
+    distFrente:18, distTampa:12, capacidade:30 };
+});
+// dados de exemplo — remova ao conectar ESP real
+state['cozinha'].capacidade = 78; state['cozinha'].distTampa = 4;
+state['banheiro'].capacidade = 45;
+
+let active = null;
+
+function ts() {
+  const d = new Date();
+  return [d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+}
+function isFull(id){ return state[id].capacidade>=85||state[id].distTampa<5; }
+
+function log(msg, tipo) {
+  const el = document.getElementById('serial-log');
+  const p  = document.createElement('p');
+  p.className = tipo ? 'log-'+tipo : '';
+  p.textContent = '['+ts()+'] '+msg;
+  el.appendChild(p);
+  if (el.children.length > 120) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(){ document.getElementById('serial-log').innerHTML=''; }
+
+async function sendCmd() {
+  const inp = document.getElementById('serial-input');
+  const cmd = inp.value.trim();
+  if (!cmd) return;
+  log('> '+cmd, 'info');
+  inp.value = '';
+  try {
+    const r = await fetch('http://'+ESP+'/cmd?v='+encodeURIComponent(cmd), {signal:AbortSignal.timeout(3000)});
+    const txt = await r.text();
+    log(txt || 'ok');
+  } catch(e) { log('erro: '+e.message, 'warn'); }
+}
+
+function renderMap() {
+  const plan = document.getElementById('plan');
+  const walls = Array.from(plan.querySelectorAll('.wall-h,.wall-v'));
+  plan.innerHTML = '';
+  walls.forEach(w => plan.appendChild(w));
+  ROOMS.forEach(r => {
+    const full = r.empty ? false : isFull(r.id);
+    const div  = document.createElement('div');
+    div.className = 'room'+(r.empty?' empty':'')+(full?' full':'')+(active===r.id?' active':'');
+    div.style.cssText = `left:${r.x};top:${r.y};width:${r.w};height:${r.h}`;
+    const ico = document.createElement('i');
+    ico.className = 'ti '+(r.empty?'ti-dots':r.icon)+' room-ico';
+    ico.setAttribute('aria-hidden','true');
+    const nm = document.createElement('span');
+    nm.className = 'room-name';
+    nm.textContent = r.empty ? r.name+' (livre)' : r.name;
+    div.appendChild(ico); div.appendChild(nm);
+    if (!r.empty) div.onclick = () => { active = active===r.id ? null : r.id; renderMap(); renderPanel(); };
+    plan.appendChild(div);
+  });
+}
+
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  if (!active) {
+    panel.innerHTML = '<div class="panel-empty" id="panel-empty"><i class="ti ti-map-pin" style="font-size:28px" aria-hidden="true"></i><span>selecione um cômodo</span></div>';
+    return;
+  }
+  const r   = ROOMS.find(x=>x.id===active);
+  const s   = state[r.id];
+  const full = isFull(r.id);
+  const pct  = Math.min(100, Math.round(s.capacidade));
+  const capColor = pct>85?'var(--red)':pct>60?'var(--amber)':'var(--green)';
+  const chipCls  = full?'chip-warn':s.open?'chip-ok':'chip-muted';
+  const chipTxt  = full?'cheia':s.open?'aberta':'ok';
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <span class="panel-title">
+        <i class="ti ${r.icon}" aria-hidden="true"></i> ${r.name}
+        <span class="chip ${chipCls}">${chipTxt}</span>
+      </span>
+      <button class="close-btn" onclick="active=null;renderMap();renderPanel()">
+        <i class="ti ti-x" aria-hidden="true"></i> fechar
+      </button>
+    </div>
+    <div class="metrics-grid">
+      <div class="met"><div class="met-label">dist. frente</div><div class="met-val">${s.distFrente}<span class="met-unit"> cm</span></div></div>
+      <div class="met"><div class="met-label">dist. tampa</div><div class="met-val">${s.distTampa}<span class="met-unit"> cm</span></div></div>
+      <div class="met"><div class="met-label">servo</div><div class="met-val">${s.servo}<span class="met-unit">°</span></div></div>
+    </div>
+    <div class="met-label" style="margin-bottom:5px">capacidade</div>
+    <div class="cap-bar"><div class="cap-fill" style="width:${pct}%;background:${capColor}"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${pct}% utilizado</div>
+    <div class="row2">
+      <div>
+        <div class="info-row">
+          <span class="info-lbl"><i class="ti ti-clock" aria-hidden="true"></i> última abertura</span>
+          <span class="info-val">${s.ultimaAbertura??'—'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-lbl"><i class="ti ti-wifi" aria-hidden="true"></i> ESP</span>
+          <span class="info-val" style="font-size:11px">${ESP}</span>
+        </div>
+      </div>
+      <div>
+        <div class="led-row"><span class="led ${s.open?'led-g':''}"></span> LED verde</div>
+        <div class="led-row"><span class="led ${full?'led-r':''}"></span> LED vermelho</div>
+      </div>
+    </div>
+    <button class="open-btn" id="btn-${r.id}" ${full?'disabled':''} onclick="abrirTampa('${r.id}')">
+      <i class="ti ${s.open?'ti-check':'ti-trash'}" aria-hidden="true"></i>
+      ${s.open?'aberta — fechando em 3s':full?'bloqueado (cheia)':'abrir tampa agora'}
+    </button>`;
+}
+
+async function abrirTampa(id) {
+  const s = state[id];
+  if (s.open || isFull(id)) return;
+  s.open = true; s.servo = 90; s.ultimaAbertura = ts();
+  renderMap(); renderPanel();
+  log('[MANUAL] abrindo tampa — '+ROOMS.find(x=>x.id===id).name, 'info');
+  try {
+    await fetch('http://'+ESP+'/open?room='+id, {signal:AbortSignal.timeout(3000)});
+    log('[MANUAL] comando enviado com sucesso', 'ok');
+  } catch(e) { log('[MANUAL] ESP não respondeu: '+e.message, 'warn'); }
+  if (s.timer) clearTimeout(s.timer);
+  s.timer = setTimeout(() => {
+    s.open = false; s.servo = 0;
+    log('[AUTO] tampa fechada após 3s');
+    renderMap(); renderPanel();
+  }, 3000);
+}
+
+function toggleTheme() {
+  const dark = document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme', dark?'light':'dark');
+  document.getElementById('theme-ico').className = dark?'ti ti-moon':'ti ti-sun';
+  document.getElementById('theme-lbl').textContent = dark?'modo escuro':'modo claro';
+}
+
+log('=== lixeira inteligente iniciada ===', 'info');
+log('configure o IP do ESP8266 no código', 'amber');
+renderMap();
+</script>
+</body>
+</html>
